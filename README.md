@@ -10,6 +10,12 @@ Data Warehouse (Star Schema on PostgreSQL)
 
 A star schema is a common database design used in data warehousing and business intelligence that organizes data into fact and dimension tables. It’s called a “star” schema because its diagram resembles a star: a central fact table is surrounded by several dimension tables.
 
+Both test2.py and data_pipeline.py implement the data pipeline however test2.py is the latest version.
+data_pipeline.py consists of clickhouse and mssql database integration but those don't function properly.
+test2.py consists of postgresql, mongodb, neo4j and data warehouse (postgresql) integration.
+
+main.py consists the FastAPI backend for sending requests to the database servers.
+
 ### Key Components
 Fact Table:
 - Central Table: Stores measurable, quantitative data (facts) such as sales amount, number of ratings, or profit.
