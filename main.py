@@ -1,231 +1,109 @@
-from random import random
-
 from fastapi import FastAPI, HTTPException
-from neo4j import GraphDatabase
-from pymongo import MongoClient
-from sqlalchemy import create_engine, text
+from typing import List, Any
+from pydantic import BaseModel
+from sqlalchemy import create_engine, MetaData, Table, select, func
 from sqlalchemy.orm import sessionmaker
-from typing import List, Dict
 
-# Configure your database connection
-DATABASE_URL = "postgresql://myuser:mypassword@localhost:5432/postgres"
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+app = FastAPI(title="Multi-Database Query API")
 
-# MongoDB connection URL and database/collection names
-MONGO_URL = "mongodb://root:example@localhost:27017/?authSource=admin"
-client = MongoClient(MONGO_URL)
-db = client["data-hw1"]
-users_collection = db["data-hw1"]
+# Connection string for PostgreSQL (RDBMS and Data Warehouse)
+POSTGRES_CONN_STR = "postgresql://myuser:mypassword@localhost:5432/data-hw1"
 
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "your_password"
-driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+def get_relational_engine():
+    engine = create_engine(POSTGRES_CONN_STR, pool_pre_ping=True)
+    return engine
 
-app = FastAPI(title="Goodbooks API")
+def get_table(engine, table_name: str) -> Table:
+    metadata = MetaData()
+    return Table(table_name, metadata, autoload_with=engine)
 
+# ----- Relational Endpoints -----
+@app.get("/api/relational/ratings_by_user/{user_id}", response_model=List[Any])
+def relational_ratings_by_user(user_id: int):
+    engine = get_relational_engine()
+    ratings_table = get_table(engine, "ratings")
+    with engine.connect() as conn:
+        result = conn.execute(select(ratings_table).where(ratings_table.c.user_id == user_id)).fetchall()
+    # Use row._mapping to convert to dict
+    return [dict(row._mapping) for row in result]
 
-@app.get("/ratings/{user_id}", response_model=List[Dict])
-def get_ratings_by_user(user_id: int):
-    """
-    Retrieve all ratings given by a specific user.
-    """
-    session = SessionLocal()
-    try:
-        query = text("SELECT * FROM ratings WHERE user_id = :user_id")
-        result = session.execute(query, {"user_id": user_id})
-        ratings = [dict(row) for row in result]
-        if not ratings:
-            raise HTTPException(status_code=404, detail="No ratings found for this user")
-        return ratings
-    finally:
-        session.close()
+@app.get("/api/relational/users_who_rated/{book_id}", response_model=List[Any])
+def relational_users_who_rated(book_id: int):
+    engine = get_relational_engine()
+    metadata = MetaData()
+    ratings_table = Table("ratings", metadata, autoload_with=engine)
+    users_table = Table("users", metadata, autoload_with=engine)
+    query = select(users_table.c.user_id, users_table.c.user_name)\
+        .select_from(ratings_table.join(users_table, ratings_table.c.user_id == users_table.c.user_id))\
+        .where(ratings_table.c.book_id == book_id)
+    with engine.connect() as conn:
+        result = conn.execute(query).fetchall()
+    return [dict(row._mapping) for row in result]
 
+@app.get("/api/relational/top5_books", response_model=List[Any])
+def relational_top5_books():
+    engine = get_relational_engine()
+    metadata = MetaData()
+    ratings_table = Table("ratings", metadata, autoload_with=engine)
+    books_table = Table("books", metadata, autoload_with=engine)
+    query = select(
+                books_table.c.book_id,
+                books_table.c.title,
+                func.avg(ratings_table.c.rating).label("avg_rating")
+            )\
+            .select_from(books_table.join(ratings_table, books_table.c.book_id == ratings_table.c.book_id))\
+            .group_by(books_table.c.book_id)\
+            .order_by(func.avg(ratings_table.c.rating).desc())\
+            .limit(5)
+    with engine.connect() as conn:
+        result = conn.execute(query).fetchall()
+    return [dict(row._mapping) for row in result]
 
-@app.get("/users-rated/{book_id}", response_model=List[int])
-def get_users_who_rated_book(book_id: int):
-    """
-    Find all distinct users who have rated a specific book.
-    """
-    session = SessionLocal()
-    try:
-        query = text("SELECT DISTINCT user_id FROM ratings WHERE book_id = :book_id")
-        result = session.execute(query, {"book_id": book_id})
-        users = [row.user_id for row in result]
-        if not users:
-            raise HTTPException(status_code=404, detail="No users found for this book")
-        return users
-    finally:
-        session.close()
+# ----- Data Warehouse Endpoints -----
+@app.get("/api/dw/ratings_over_time", response_model=List[Any])
+def dw_ratings_over_time():
+    engine = get_relational_engine()
+    metadata = MetaData()
+    fact_ratings = Table("fact_ratings", metadata, autoload_with=engine)
+    dim_time = Table("dim_time", metadata, autoload_with=engine)
+    query = select(
+                dim_time.c.date,
+                func.count(fact_ratings.c.rating).label("total_ratings")
+            )\
+            .select_from(fact_ratings.join(dim_time, fact_ratings.c.time_id == dim_time.c.time_id))\
+            .group_by(dim_time.c.date)
+    with engine.connect() as conn:
+        result = conn.execute(query).fetchall()
+    return [dict(row._mapping) for row in result]
 
+@app.get("/api/dw/top10_books", response_model=List[Any])
+def dw_top10_books():
+    engine = get_relational_engine()
+    metadata = MetaData()
+    fact_ratings = Table("fact_ratings", metadata, autoload_with=engine)
+    dim_books = Table("dim_books", metadata, autoload_with=engine)
+    query = select(
+                dim_books.c.book_id,
+                dim_books.c.title,
+                func.avg(fact_ratings.c.rating).label("avg_rating")
+            )\
+            .select_from(fact_ratings.join(dim_books, fact_ratings.c.book_id == dim_books.c.book_id))\
+            .group_by(dim_books.c.book_id)\
+            .order_by(func.avg(fact_ratings.c.rating).desc())\
+            .limit(10)
+    with engine.connect() as conn:
+        result = conn.execute(query).fetchall()
+    return [dict(row._mapping) for row in result]
 
-@app.get("/top-books", response_model=List[Dict])
-def get_top_5_highest_rated_books():
-    """
-    Find the top 5 highest-rated books based on the average_rating field.
-    """
-    session = SessionLocal()
-    try:
-        query = text("SELECT * FROM books ORDER BY average_rating DESC LIMIT 5")
-        result = session.execute(query)
-        books = [dict(row) for row in result]
-        if not books:
-            raise HTTPException(status_code=404, detail="No books found")
-        return books
-    finally:
-        session.close()
-
-
-@app.post("/mongo/seed")
-def seed_users():
-    """
-    Denormalize the data by embedding book ratings in each user document.
-    Inserts 500 sample users with their corresponding book ratings.
-    """
-    # Only seed if the collection is empty
-    if users_collection.count_documents({}) > 0:
-        return {"message": "Data already seeded."}
-
-    sample_users = []
-    # Create 500 users; each gets a random number of ratings (between 1 and 10)
-    for user_id in range(1, 501):
-        ratings = []
-        num_ratings = random.randint(1, 10)
-        for _ in range(num_ratings):
-            # Simulate a rating for a book (random book IDs between 1 and 1000)
-            book_id = random.randint(1, 1000)
-            title = f"Book {book_id}"
-            rating = round(random.uniform(1, 5), 2)
-            ratings.append({
-                "book_id": book_id,  # this key is used by our insertion process
-                "title": title,
-                "rating": rating
-            })
-        user_doc = {
-            "user_id": user_id,
-            "name": f"User {user_id}",
-            "ratings": ratings
-        }
-        sample_users.append(user_doc)
-
-    result = users_collection.insert_many(sample_users)
-    return {"message": f"Inserted {len(result.inserted_ids)} user documents."}
-
-
-@app.get("/mongo/ratings/{user_id}", response_model=Dict)
-def get_ratings_by_user(user_id: int):
-    """
-    Retrieve all ratings embedded in a specific user's document.
-    """
-    user = users_collection.find_one({"user_id": user_id}, {"_id": 0, "ratings": 1})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-
-
-@app.get("/mongo/users-rated/{book_id}", response_model=List[int])
-def get_users_who_rated_book(book_id: int):
-    """
-    Find all users who have rated a specific book by querying the embedded ratings.
-    """
-    # Query for user documents where any rating has the given book_id.
-    cursor = users_collection.find({"ratings.book_id": book_id}, {"user_id": 1, "_id": 0})
-    user_ids = [doc["user_id"] for doc in cursor]
-    if not user_ids:
-        raise HTTPException(status_code=404, detail="No users found for this book")
-    return user_ids
-
-
-@app.get("/mongo/top-books", response_model=List[Dict])
-def get_top_5_highest_rated_books():
-    """
-    Aggregate across all users to compute the average rating per book,
-    then return the top 5 highest-rated books.
-    """
-    pipeline = [
-        {"$unwind": "$ratings"},
-        {"$group": {
-            "_id": "$ratings.book_id",
-            "title": {"$first": "$ratings.title"},
-            "avg_rating": {"$avg": "$ratings.rating"},
-            "count": {"$sum": 1}
-        }},
-        {"$sort": {"avg_rating": -1}},
-        {"$limit": 5}
-    ]
-    top_books = list(users_collection.aggregate(pipeline))
-    # Rename _id to book_id in the result for clarity.
-    for book in top_books:
-        book["book_id"] = book.pop("_id")
-    if not top_books:
-        raise HTTPException(status_code=404, detail="No books found")
-    return top_books
-
-
-@app.on_event("shutdown")
-def shutdown():
-    driver.close()
-
-
-@app.get("/neo4j/ratings/{user_id}", response_model=List[Dict])
-def get_ratings_by_user(user_id: int):
-    """
-    Retrieve all ratings given by a specific user.
-    Returns book id, title, and the rating given by the user.
-    """
-    query = """
-    MATCH (u:User {user_id: $user_id})-[r:RATED]->(b:Book)
-    RETURN b.book_id AS book_id, b.title AS title, r.rating AS rating
-    """
-    with driver.session() as session:
-        result = session.run(query, user_id=user_id)
-        records = [record.data() for record in result]
-        if not records:
-            raise HTTPException(status_code=404, detail="No ratings found for this user")
-        return records
-
-
-@app.get("/neo4j/users-rated/{book_id}", response_model=List[int])
-def get_users_who_rated_book(book_id: int):
-    """
-    Find users who have rated a specific book.
-    Returns a list of user IDs.
-    """
-    query = """
-    MATCH (u:User)-[r:RATED]->(b:Book {book_id: $book_id})
-    RETURN DISTINCT u.user_id AS user_id
-    """
-    with driver.session() as session:
-        result = session.run(query, book_id=book_id)
-        user_ids = [record["user_id"] for record in result]
-        if not user_ids:
-            raise HTTPException(status_code=404, detail="No users found for this book")
-        return user_ids
-
-
-@app.get("/neo4j/top-books", response_model=List[Dict])
-def get_top_5_highest_rated_books():
-    """
-    Find the top 5 highest-rated books.
-    Computes the average rating across all RATED relationships.
-    Returns book id, title, and average rating.
-    """
-    query = """
-    MATCH (u:User)-[r:RATED]->(b:Book)
-    WITH b, avg(r.rating) AS avg_rating
-    RETURN b.book_id AS book_id, b.title AS title, avg_rating
-    ORDER BY avg_rating DESC
-    LIMIT 5
-    """
-    with driver.session() as session:
-        result = session.run(query)
-        top_books = [record.data() for record in result]
-        if not top_books:
-            raise HTTPException(status_code=404, detail="No books found")
-        return top_books
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+@app.get("/api/dw/ratings_for_genre/{genre}", response_model=dict)
+def dw_ratings_for_genre(genre: str):
+    engine = get_relational_engine()
+    metadata = MetaData()
+    fact_ratings = Table("fact_ratings", metadata, autoload_with=engine)
+    dim_books = Table("dim_books", metadata, autoload_with=engine)
+    query = select(func.count(fact_ratings.c.rating))\
+            .select_from(fact_ratings.join(dim_books, fact_ratings.c.book_id == dim_books.c.book_id))\
+            .where(dim_books.c.genre == genre)
+    with engine.connect() as conn:
+        total = conn.execute(query).scalar()
+    return {"genre": genre, "total_ratings": total}

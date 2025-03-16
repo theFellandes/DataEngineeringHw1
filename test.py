@@ -430,8 +430,8 @@ def main():
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = []
         futures.append(executor.submit(run_relational_task, users_sample, books_sample, ratings_sample))
-        # futures.append(executor.submit(run_document_task, users_sample, books_sample, ratings_sample))
-        # futures.append(executor.submit(run_graph_task, users_sample, books_sample, ratings_sample))
+        futures.append(executor.submit(run_document_task, users_sample, books_sample, ratings_sample))
+        futures.append(executor.submit(run_graph_task, users_sample, books_sample, ratings_sample))
         futures.append(executor.submit(run_dw_task, users_sample, books_sample, ratings_sample))
 
         for future in as_completed(futures):

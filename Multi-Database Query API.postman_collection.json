@@ -1,0 +1,290 @@
+{
+	"info": {
+		"_postman_id": "c3197c57-177f-4219-9ea2-375eb5a5815d",
+		"name": "Multi-Database Query API",
+		"description": "Postman collection for the Multi-Database Query API (Relational, Data Warehouse, Document, Graph).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "16672814"
+	},
+	"item": [
+		{
+			"name": "Relational Queries",
+			"item": [
+				{
+					"name": "Ratings by User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/relational/ratings_by_user/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"relational",
+								"ratings_by_user",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Users Who Rated Book",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/relational/users_who_rated/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"relational",
+								"users_who_rated",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Top 5 Highest Rated Books",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/relational/top5_books",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"relational",
+								"top5_books"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Data Warehouse Queries",
+			"item": [
+				{
+					"name": "Ratings Over Time",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/dw/ratings_over_time",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"dw",
+								"ratings_over_time"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Top 10 Highest Rated Books (DW)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/dw/top10_books",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"dw",
+								"top10_books"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Ratings for Genre (Fiction)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/dw/ratings_for_genre/Fiction",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"dw",
+								"ratings_for_genre",
+								"Fiction"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Document DB Queries",
+			"item": [
+				{
+					"name": "Ratings for User (Document)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/document/ratings_for_user/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"document",
+								"ratings_for_user",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Users Who Rated Book (Document)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/document/users_who_rated/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"document",
+								"users_who_rated",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Top 5 Books (Document)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/document/top5_books",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"document",
+								"top5_books"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Graph DB Queries",
+			"item": [
+				{
+					"name": "Ratings by User (Graph)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/graph/ratings_by_user/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"graph",
+								"ratings_by_user",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Users Who Rated Book (Graph)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/graph/users_who_rated/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"graph",
+								"users_who_rated",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Top 5 Books (Graph)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/api/graph/top5_books",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"graph",
+								"top5_books"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
